@@ -334,6 +334,12 @@ bitflags! {
 pub struct SslMethod(*const ffi::SSL_METHOD);
 
 impl SslMethod {
+    /// Support all versions of the NTLS protocol.
+    #[corresponds(NTLS_method)]
+    pub fn ntls() -> SslMethod {
+        unsafe { SslMethod(NTLS_method()) }
+    }
+
     /// Support all versions of the TLS protocol.
     #[corresponds(TLS_method)]
     pub fn tls() -> SslMethod {
@@ -356,6 +362,20 @@ impl SslMethod {
     #[corresponds(TLS_server_method)]
     pub fn tls_server() -> SslMethod {
         unsafe { SslMethod(TLS_server_method()) }
+    }
+
+    /// Support all versions of the NTLS protocol, explicitly as a client.
+    #[corresponds(NTLS_client_method)]
+    #[cfg(any(boringssl, ossl110, libressl, awslc))]
+    pub fn ntls_client() -> SslMethod {
+        unsafe { SslMethod(NTLS_client_method()) }
+    }
+
+    /// Support all versions of the NTLS protocol, explicitly as a server.
+    #[corresponds(NTLS_server_method)]
+    #[cfg(any(boringssl, ossl110, libressl, awslc))]
+    pub fn ntls_server() -> SslMethod {
+        unsafe { SslMethod(NTLS_server_method()) }
     }
 
     /// Support all versions of the DTLS protocol, explicitly as a client.
@@ -991,6 +1011,58 @@ impl SslContextBuilder {
         }
     }
 
+    /// Enables NTLS support for the SSL context.  
+    #[corresponds(SSL_CTX_enable_ntls)]  
+    pub fn enable_ntls(&mut self) {  
+        unsafe {  
+            ffi::SSL_CTX_enable_ntls(self.as_ptr());  
+        }  
+    }
+
+    /// Loads a leaf certificate from a file.
+    ///
+    /// Only a single certificate will be loaded - use `add_extra_chain_cert` to add the remainder
+    /// of the certificate chain, or `set_certificate_chain_file` to load the entire chain from a
+    /// single file.
+    #[corresponds(SSL_CTX_use_sign_certificate_file)]
+    pub fn set_sign_certificate_file<P: AsRef<Path>>(
+        &mut self,
+        file: P,
+        file_type: SslFiletype,
+    ) -> Result<(), ErrorStack> {
+        let file = CString::new(file.as_ref().as_os_str().to_str().unwrap()).unwrap();
+        unsafe {
+            cvt(ffi::SSL_CTX_use_sign_certificate_file(
+                self.as_ptr(),
+                file.as_ptr() as *const _,
+                file_type.as_raw(),
+            ))
+            .map(|_| ())
+        }
+    }
+
+    /// Loads a leaf certificate from a file.
+    ///
+    /// Only a single certificate will be loaded - use `add_extra_chain_cert` to add the remainder
+    /// of the certificate chain, or `set_certificate_chain_file` to load the entire chain from a
+    /// single file.
+    #[corresponds(SSL_CTX_use_enc_certificate_file)]
+    pub fn set_enc_certificate_file<P: AsRef<Path>>(
+        &mut self,
+        file: P,
+        file_type: SslFiletype,
+    ) -> Result<(), ErrorStack> {
+        let file = CString::new(file.as_ref().as_os_str().to_str().unwrap()).unwrap();
+        unsafe {
+            cvt(ffi::SSL_CTX_use_enc_certificate_file(
+                self.as_ptr(),
+                file.as_ptr() as *const _,
+                file_type.as_raw(),
+            ))
+            .map(|_| ())
+        }
+    }
+
     /// Loads a leaf certificate from a file.
     ///
     /// Only a single certificate will be loaded - use `add_extra_chain_cert` to add the remainder
@@ -1051,6 +1123,42 @@ impl SslContextBuilder {
             cvt(ffi::SSL_CTX_add_extra_chain_cert(self.as_ptr(), cert.as_ptr()) as c_int)?;
             mem::forget(cert);
             Ok(())
+        }
+    }
+
+    /// Loads the private key from a file.
+    #[corresponds(SSL_CTX_use_sign_PrivateKey_file)]
+    pub fn set_sign_private_key_file<P: AsRef<Path>>(
+        &mut self,
+        file: P,
+        file_type: SslFiletype,
+    ) -> Result<(), ErrorStack> {
+        let file = CString::new(file.as_ref().as_os_str().to_str().unwrap()).unwrap();
+        unsafe {
+            cvt(ffi::SSL_CTX_use_sign_PrivateKey_file(
+                self.as_ptr(),
+                file.as_ptr() as *const _,
+                file_type.as_raw(),
+            ))
+            .map(|_| ())
+        }
+    }
+    
+    /// Loads the private key from a file.
+    #[corresponds(SSL_CTX_use_enc_PrivateKey_file)]
+    pub fn set_enc_private_key_file<P: AsRef<Path>>(
+        &mut self,
+        file: P,
+        file_type: SslFiletype,
+    ) -> Result<(), ErrorStack> {
+        let file = CString::new(file.as_ref().as_os_str().to_str().unwrap()).unwrap();
+        unsafe {
+            cvt(ffi::SSL_CTX_use_enc_PrivateKey_file(
+                self.as_ptr(),
+                file.as_ptr() as *const _,
+                file_type.as_raw(),
+            ))
+            .map(|_| ())
         }
     }
 
@@ -4302,7 +4410,7 @@ cfg_if! {
 }
 cfg_if! {
     if #[cfg(any(boringssl, ossl110, libressl, awslc))] {
-        use ffi::{TLS_method, DTLS_method, TLS_client_method, TLS_server_method, DTLS_server_method, DTLS_client_method};
+        use ffi::{TLS_method, NTLS_method, DTLS_method, TLS_client_method, TLS_server_method, DTLS_server_method, DTLS_client_method, NTLS_server_method, NTLS_client_method};
     } else {
         use ffi::{
             SSLv23_method as TLS_method, DTLSv1_method as DTLS_method, SSLv23_client_method as TLS_client_method,

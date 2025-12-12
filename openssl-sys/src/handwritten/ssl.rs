@@ -439,6 +439,29 @@ extern "C" {
     pub fn SSL_CTX_use_PrivateKey(ctx: *mut SSL_CTX, key: *mut EVP_PKEY) -> c_int;
     pub fn SSL_CTX_use_certificate(ctx: *mut SSL_CTX, cert: *mut X509) -> c_int;
 
+    pub fn SSL_CTX_enable_ntls(ctx: *mut SSL_CTX);  
+
+    pub fn SSL_CTX_use_sign_PrivateKey_file(
+        ctx: *mut SSL_CTX,
+        key_file: *const c_char,
+        file_type: c_int,
+    ) -> c_int;
+    pub fn SSL_CTX_use_sign_certificate_file(
+        ctx: *mut SSL_CTX,
+        cert_file: *const c_char,
+        file_type: c_int,
+    ) -> c_int;
+    pub fn SSL_CTX_use_enc_PrivateKey_file(
+        ctx: *mut SSL_CTX,
+        key_file: *const c_char,
+        file_type: c_int,
+    ) -> c_int;
+    pub fn SSL_CTX_use_enc_certificate_file(
+        ctx: *mut SSL_CTX,
+        cert_file: *const c_char,
+        file_type: c_int,
+    ) -> c_int;
+
     pub fn SSL_CTX_use_PrivateKey_file(
         ctx: *mut SSL_CTX,
         key_file: *const c_char,
@@ -630,11 +653,17 @@ cfg_if! {
         extern "C" {
             pub fn TLS_method() -> *const SSL_METHOD;
 
+            pub fn NTLS_method() -> *const SSL_METHOD;
+            
             pub fn DTLS_method() -> *const SSL_METHOD;
 
             pub fn TLS_server_method() -> *const SSL_METHOD;
 
             pub fn TLS_client_method() -> *const SSL_METHOD;
+
+            pub fn NTLS_server_method() -> *const SSL_METHOD;
+
+            pub fn NTLS_client_method() -> *const SSL_METHOD;
 
             pub fn DTLS_server_method() -> *const SSL_METHOD;
 
