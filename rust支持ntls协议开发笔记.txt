@@ -1,0 +1,434 @@
+export OPENSSL_LIB_DIR=/usr/local/tongsuo/lib64
+export OPENSSL_INCLUDE_DIR=/usr/local/tongsuo/include
+
+然后apt install cargo安装完遇到报错root@luo:/home/red/rust-openssl# cargo --version 
+cargo: symbol lookup error: /lib/x86_64-linux-gnu/libssh2.so.1: undefined symbol: EVP_cast5_cbc, version OPENSSL_3.0.0
+
+原因是tongsuo移除了cast5算法支持，libssh2又依赖这个算法，导致符合找不到
+解决方法是下载libssh2源码编译一个不依赖cast5算法的特殊libssh2库
+
+git clone https://github.com/libssh2/libssh2.git
+autoreconf -fi
+./configure CFLAGS="-DLIBSSH2_NO_CAST"  
+make  
+
+编译好找到新的libssh2库文件
+root@luo:/home/red/libssh2# ls -l ./src/.libs/libssh2.so.1
+lrwxrwxrwx 1 root root 16 Dec 10 10:45 ./src/.libs/libssh2.so.1 -> libssh2.so.1.0.1
+
+修改环境变量
+export LD_LIBRARY_PATH=/home/red/libssh2/src/.libs:$LD_LIBRARY_PATH
+重新执行root@luo:/home/red/rust-openssl# cargo --version
+cargo 1.75.0
+
+
+编译报错
+  cargo:warning=/home/red/rust-openssl/target/debug/build/systest-b0038e316c5bd56d/out/all.c: In function '__test_fn_EVP_bf_ofb':
+  cargo:warning=/home/red/rust-openssl/target/debug/build/systest-b0038e316c5bd56d/out/all.c:2184:1: error: control reaches end of non-void function [-Werror=return-type]
+  cargo:warning= 2184 | }
+  cargo:warning=      | ^
+  cargo:warning=/home/red/rust-openssl/target/debug/build/systest-b0038e316c5bd56d/out/all.c: At top level:
+  cargo:warning=cc1: note: unrecognized command-line option '-Wno-unknown-warning-option' may have been intended to silence earlier diagnostics
+  cargo:warning=cc1: all warnings being treated as errors
+原因是tongsuo移除了Blowfish算法，包括EVP_bf_ofb函数
+
+解决方法是下载libssh2源码编译一个不依赖cast5算法的特殊libssh2库
+
+
+
+ /usr/local/tongsuo/bin/tongsuo list -disabled 查询被禁用的算法 然后没查到BF，说明tongsuo的宏定义有问题
+解决方法是复制openssl的 apps\list.c 的list_disabled函数，粘贴到tongsuo的代码里面
+static void list_disabled(void)
+{
+    BIO_puts(bio_out, "Disabled algorithms:\n");
+#ifdef OPENSSL_NO_ARIA
+    BIO_puts(bio_out, "ARIA\n");
+#endif
+#ifdef OPENSSL_NO_BF 
+    BIO_puts(bio_out, "BF\n");
+#endif
+#ifdef OPENSSL_NO_BLAKE2
+    BIO_puts(bio_out, "BLAKE2\n");
+#endif
+#ifdef OPENSSL_NO_CAMELLIA
+    BIO_puts(bio_out, "CAMELLIA\n");
+#endif
+#ifdef OPENSSL_NO_CAST
+    BIO_puts(bio_out, "CAST\n");
+#endif
+#ifdef OPENSSL_NO_CMAC
+    BIO_puts(bio_out, "CMAC\n");
+#endif
+#ifdef OPENSSL_NO_CMS
+    BIO_puts(bio_out, "CMS\n");
+#endif
+#ifdef OPENSSL_NO_COMP
+    BIO_puts(bio_out, "COMP\n");
+#endif
+#ifdef OPENSSL_NO_DES
+    BIO_puts(bio_out, "DES\n");
+#endif
+#ifdef OPENSSL_NO_DGRAM
+    BIO_puts(bio_out, "DGRAM\n");
+#endif
+#ifdef OPENSSL_NO_DH
+    BIO_puts(bio_out, "DH\n");
+#endif
+#ifdef OPENSSL_NO_DSA
+    BIO_puts(bio_out, "DSA\n");
+#endif
+#if defined(OPENSSL_NO_DTLS)
+    BIO_puts(bio_out, "DTLS\n");
+#endif
+#if defined(OPENSSL_NO_DTLS1)
+    BIO_puts(bio_out, "DTLS1\n");
+#endif
+#if defined(OPENSSL_NO_DTLS1_2)
+    BIO_puts(bio_out, "DTLS1_2\n");
+#endif
+#ifdef OPENSSL_NO_EC
+    BIO_puts(bio_out, "EC\n");
+#endif
+#ifdef OPENSSL_NO_EC2M
+    BIO_puts(bio_out, "EC2M\n");
+#endif
+#if defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+    BIO_puts(bio_out, "ENGINE\n");
+#endif
+#ifdef OPENSSL_NO_GOST
+    BIO_puts(bio_out, "GOST\n");
+#endif
+#ifdef OPENSSL_NO_IDEA
+    BIO_puts(bio_out, "IDEA\n");
+#endif
+#ifdef OPENSSL_NO_MD2
+    BIO_puts(bio_out, "MD2\n");
+#endif
+#ifdef OPENSSL_NO_MD4
+    BIO_puts(bio_out, "MD4\n");
+#endif
+#ifdef OPENSSL_NO_MD5
+    BIO_puts(bio_out, "MD5\n");
+#endif
+#ifdef OPENSSL_NO_MDC2
+    BIO_puts(bio_out, "MDC2\n");
+#endif
+#ifdef OPENSSL_NO_OCB
+    BIO_puts(bio_out, "OCB\n");
+#endif
+#ifdef OPENSSL_NO_OCSP
+    BIO_puts(bio_out, "OCSP\n");
+#endif
+#ifdef OPENSSL_NO_PSK
+    BIO_puts(bio_out, "PSK\n");
+#endif
+#ifdef OPENSSL_NO_RC2
+    BIO_puts(bio_out, "RC2\n");
+#endif
+#ifdef OPENSSL_NO_RC4
+    BIO_puts(bio_out, "RC4\n");
+#endif
+#ifdef OPENSSL_NO_RC5
+    BIO_puts(bio_out, "RC5\n");
+#endif
+#ifdef OPENSSL_NO_RMD160
+    BIO_puts(bio_out, "RMD160\n");
+#endif
+#ifdef OPENSSL_NO_SCRYPT
+    BIO_puts(bio_out, "SCRYPT\n");
+#endif
+#ifdef OPENSSL_NO_SCTP
+    BIO_puts(bio_out, "SCTP\n");
+#endif
+#ifdef OPENSSL_NO_SEED
+    BIO_puts(bio_out, "SEED\n");
+#endif
+#ifdef OPENSSL_NO_SM2
+    BIO_puts(bio_out, "SM2\n");
+#endif
+#ifdef OPENSSL_NO_SM3
+    BIO_puts(bio_out, "SM3\n");
+#endif
+#ifdef OPENSSL_NO_SM4
+    BIO_puts(bio_out, "SM4\n");
+#endif
+#ifdef OPENSSL_NO_SOCK
+    BIO_puts(bio_out, "SOCK\n");
+#endif
+#ifdef OPENSSL_NO_SRP
+    BIO_puts(bio_out, "SRP\n");
+#endif
+#ifdef OPENSSL_NO_SRTP
+    BIO_puts(bio_out, "SRTP\n");
+#endif
+#ifdef OPENSSL_NO_SSL3
+    BIO_puts(bio_out, "SSL3\n");
+#endif
+#ifdef OPENSSL_NO_TLS1
+    BIO_puts(bio_out, "TLS1\n");
+#endif
+#ifdef OPENSSL_NO_TLS1_1
+    BIO_puts(bio_out, "TLS1_1\n");
+#endif
+#ifdef OPENSSL_NO_TLS1_2
+    BIO_puts(bio_out, "TLS1_2\n");
+#endif
+#ifdef OPENSSL_NO_WHIRLPOOL
+    BIO_puts(bio_out, "WHIRLPOOL\n");
+#endif
+#ifndef ZLIB
+    BIO_puts(bio_out, "ZLIB\n");
+#endif
+}
+
+遇到问题：Tongsuo 是一个定制的 OpenSSL 分支，移除了许多算法以符合中国国密标准和安全性要求，而 rust-openssl 期望的是完整的标准 OpenSSL，依赖很多加密算法，被tongsuo移除了的不安全的加密算法。
+解决方案是 cargo build --lib， 这样就只生成库而不进行测试，就不会报错某些算法不支持了。
+
+编译铜锁
+
+ ./Configure --prefix=/usr/local/tongsuo -d enable-ntls 
+
+ make -j$(nproc)
+ make install
+ patchelf --set-rpath /usr/local/tongsuo/lib64 /usr/local/tongsuo/bin/openssl
+ patchelf --set-rpath /usr/local/tongsuo/lib64 /usr/local/tongsuo/bin/tongsuo
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+生成国密证书
+root@luo:/mnt/d/rust_ntls_test# cat make_gm_certs.sh
+#!/bin/bash
+WORKDIR="./ntls_certs"
+mkdir -p $WORKDIR && cd $WORKDIR || exit 1
+
+# 生成根CA证书（SM2算法）
+/usr/local/tongsuo/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:sm2 -out ca.key
+/usr/local/tongsuo/bin/openssl req -x509 -new -key ca.key -out ca.crt -subj "/C=CN/ST=ZJ/L=HZ/O=NTLS_CA/CN=Root CA" -sigopt sm2_id:1234567812345678
+
+echo "====== 生成服务器证书 ======"
+## 签名证书
+/usr/local/tongsuo/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:sm2 -out sign_server.key
+/usr/local/tongsuo/bin/openssl req -new -key sign_server.key -out server_sign.csr \
+    -subj "/C=CN/ST=ZJ/L=HZ/O=Server/CN=server.example.com"
+# 添加服务器签名证书扩展
+/usr/local/tongsuo/bin/openssl x509 -req -in server_sign.csr \
+    -CA ca.crt -CAkey ca.key -CAcreateserial \
+    -out sign_server.crt -days 365 \
+        -extfile <(echo -e "basicConstraints=critical,CA:FALSE\nkeyUsage=Digital Signature\nextendedKeyUsage=serverAuth") \
+    -sigopt sm2_id:1234567812345678
+
+## 加密证书
+/usr/local/tongsuo/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:sm2 -out enc_server.key
+/usr/local/tongsuo/bin/openssl req -new -key enc_server.key -out server_enc.csr \
+    -subj "/C=CN/ST=ZJ/L=HZ/O=Server/CN=server.example.com"
+# 添加加密证书扩展
+/usr/local/tongsuo/bin/openssl x509 -req -in server_enc.csr \
+    -CA ca.crt -CAkey ca.key \
+    -out enc_server.crt -days 365 \
+    -extfile <(echo -e "basicConstraints=critical,CA:FALSE\nkeyUsage=Key Encipherment, Data Encipherment, Key Agreement\nextendedKeyUsage=serverAuth") \
+    -sigopt sm2_id:1234567812345678
+
+echo "====== 生成客户端证书 ======"
+## 签名证书
+/usr/local/tongsuo/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:sm2 -out sign_client.key
+/usr/local/tongsuo/bin/openssl req -new -key sign_client.key -out client_sign.csr \
+    -subj "/C=CN/ST=ZJ/L=HZ/O=Client/CN=client.example.com"
+# 添加客户端签名证书扩展
+/usr/local/tongsuo/bin/openssl x509 -req -in client_sign.csr \
+    -CA ca.crt -CAkey ca.key -CAcreateserial \
+    -out sign_client.crt -days 365 \
+        -extfile <(echo -e "basicConstraints=critical,CA:FALSE\nkeyUsage=Digital Signature\nextendedKeyUsage=clientAuth") \
+    -sigopt sm2_id:1234567812345678
+
+## 加密证书
+/usr/local/tongsuo/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:sm2 -out enc_client.key
+/usr/local/tongsuo/bin/openssl req -new -key enc_client.key -out client_enc.csr \
+    -subj "/C=CN/ST=ZJ/L=HZ/O=Client/CN=client.example.com"
+# 添加加密证书扩展
+/usr/local/tongsuo/bin/openssl x509 -req -in client_enc.csr \
+    -CA ca.crt -CAkey ca.key \
+    -out enc_client.crt -days 365 \
+    -extfile <(echo -e "basicConstraints=critical,CA:FALSE\nkeyUsage=Key Encipherment, Data Encipherment, Key Agreement\nextendedKeyUsage=clientAuth") \
+    -sigopt sm2_id:1234567812345678
+
+echo "证书生成完成，目录：$WORKDIR"
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+root@luo:/mnt/d/rust_ntls_test# cat Cargo.toml
+[package]
+name = "rust-ntls-test"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ntls-server"
+path = "ntls-server.rs"
+
+[[bin]]
+name = "ntls-client"
+path = "ntls-client.rs"
+
+[dependencies]
+openssl = { path = "/home/red/rust-openssl/openssl" }
+openssl-sys = { path = "/home/red/rust-openssl/openssl-sys" }
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#用环境变量指定连接路径
+export OPENSSL_DIR=/usr/local/tongsuo/ 
+export OPENSSL_LIB_DIR=/usr/local/tongsuo/lib64
+export OPENSSL_INCLUDE_DIR=/usr/local/tongsuo/include
+# 强制静态链接（如果需要）  
+export OPENSSL_STATIC=1 
+编译并运行
+cargo run --bin ntls-server
+
+root@luo:/mnt/d/rust_ntls_test# cat ntls-server.rs # 这是ntls-server.rs的内容
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
+use openssl::x509::X509Name;  // Add this import
+use std::io::{Read, Write};
+use std::net::TcpListener;  // Remove unused TcpStream import
+use std::fs::File;
+use std::io::BufReader;
+
+fn main() -> std::io::Result<()> {
+    // 创建 SSL 接受器
+    let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::ntls()).unwrap();
+
+        //打开ntls开关
+        acceptor.enable_ntls();
+
+    // 设置服务端证书和私钥
+    acceptor.set_sign_private_key_file("./ntls_certs/sign_server.key", SslFiletype::PEM).unwrap();
+    acceptor.set_sign_certificate_file("./ntls_certs/sign_server.crt", SslFiletype::PEM).unwrap();
+    acceptor.check_private_key().unwrap();
+
+    acceptor.set_enc_private_key_file("./ntls_certs/enc_server.key", SslFiletype::PEM).unwrap();
+    acceptor.set_enc_certificate_file("./ntls_certs/enc_server.crt", SslFiletype::PEM).unwrap();
+    acceptor.check_private_key().unwrap();
+
+    // 配置 NTLS - 要求并验证客户端证书
+    acceptor.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);
+
+    // 设置信任的 CA 证书
+    acceptor.set_ca_file("./ntls_certs/ca.crt").unwrap();
+
+    // 设置客户端 CA 列表 - 使用更简单的方法
+    let ca_names = X509Name::load_client_ca_file("./ntls_certs/ca.crt").unwrap();
+    acceptor.set_client_ca_list(ca_names);
+
+        // 设置密码套件以及安全级别
+        acceptor.set_cipher_list("ECC-SM2-SM4-CBC-SM3")?;
+        acceptor.set_security_level(0);
+
+    let acceptor = acceptor.build();
+
+    // 监听端口
+    let listener = TcpListener::bind("0.0.0.0:8443")?;
+
+    println!("mTLS Server listening on 0.0.0.0:8443");
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                let acceptor = acceptor.clone();
+                std::thread::spawn(move || {
+                    match acceptor.accept(stream) {
+                        Ok(mut ssl_stream) => {
+                            // 获取客户端证书信息
+                            if let Some(cert) = ssl_stream.ssl().peer_certificate() {
+                                let subject = cert.subject_name();
+                                println!("Client connected with certificate: {:?}", subject);
+                            }
+
+                            // 读取请求
+                            let mut buffer = [0; 1024];
+                            ssl_stream.read(&mut buffer).unwrap();
+                            println!("Request: {}", String::from_utf8_lossy(&buffer));
+
+                            // 发送响应
+                            let response = "HTTP/1.1 200 OK\r\n\r\nHello mTLS Client!";
+                            ssl_stream.write_all(response.as_bytes()).unwrap();
+                        }
+                        Err(e) => {
+                            eprintln!("TLS handshake failed: {}", e);
+                        }
+                    }
+                });
+            }
+            Err(e) => eprintln!("Connection failed: {}", e),
+        }
+    }
+
+    Ok(())
+}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#用环境变量指定连接路径
+export OPENSSL_DIR=/usr/local/tongsuo/ 
+export OPENSSL_LIB_DIR=/usr/local/tongsuo/lib64
+export OPENSSL_INCLUDE_DIR=/usr/local/tongsuo/include
+# 强制静态链接（如果需要）  
+export OPENSSL_STATIC=1 
+编译并运行
+ cargo run --bin ntls-client
+
+root@luo:/mnt/d/rust_ntls_test# cat ntls-client.rs 这是ntls-client.rs的内容
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode, SslFiletype};  // Add SslFiletype
+use std::io::{Read, Write};
+use std::net::TcpStream;
+
+fn main() -> std::io::Result<()> {
+    // 创建 SSL 连接器
+    let mut builder = SslConnector::builder(SslMethod::ntls()).unwrap();
+
+    //打开ntls开关
+    builder.enable_ntls();
+
+    // 设置信任的 CA 证书（用于验证服务端）
+    builder.set_ca_file("./ntls_certs/ca.crt").unwrap();
+
+
+    // 设置客户端证书和私钥（用于向服务端证明身份）
+    builder.set_sign_private_key_file("./ntls_certs/sign_client.key", SslFiletype::PEM).unwrap();
+    builder.set_sign_certificate_file("./ntls_certs/sign_client.crt", SslFiletype::PEM).unwrap();
+    builder.check_private_key().unwrap();
+    builder.set_enc_private_key_file("./ntls_certs/enc_client.key", SslFiletype::PEM).unwrap();
+    builder.set_enc_certificate_file("./ntls_certs/enc_client.crt", SslFiletype::PEM).unwrap();
+    builder.check_private_key().unwrap();
+
+    // 启用服务端证书验证
+    builder.set_verify(SslVerifyMode::PEER);
+
+
+    // 设置密码套件以及安全级别
+    builder.set_cipher_list("ECC-SM2-SM4-CBC-SM3")?;
+    builder.set_security_level(0);
+
+    let connector = builder.build();
+
+    // 连接到服务器
+    let stream = TcpStream::connect("localhost:8443")?;
+    let mut ssl_stream = connector.connect("server.example.com", stream).unwrap();
+
+    // 验证服务端证书
+    if let Some(cert) = ssl_stream.ssl().peer_certificate() {
+        let subject = cert.subject_name();
+        println!("Connected to server with certificate: {:?}", subject);
+    }
+
+    // 发送请求
+    let request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+    ssl_stream.write_all(request.as_bytes()).unwrap();
+
+    // 读取响应
+    let mut response = String::new();
+    ssl_stream.read_to_string(&mut response).unwrap();
+    println!("Response: {}", response);
+
+    Ok(())
+}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+可以抓包127.0.0.1：8443的流量
+sudo tcpdump -i lo -s 0 -w localhost_8443.pcap 'host 127.0.0.1 and port 8443'
+然后在window系统下用Wireshark 打开并分析 pcap 文件
+
